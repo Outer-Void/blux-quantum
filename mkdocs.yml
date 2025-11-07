@@ -6,6 +6,7 @@ nav:
   - Install: INSTALL.md
   - Operations: OPERATIONS.md
   - Security: SECURITY.md
+  - FSP Scanner: fsp.md
   - Configuration: CONFIGURATION.md
   - Troubleshooting: TROUBLESHOOTING.md
   - Roadmap: ROADMAP.md
