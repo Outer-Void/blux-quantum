@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Lightweight wrapper to launch the BLUX Quantum Typer app.
+
+exec python3 -m blux_quantum.cli "$@"

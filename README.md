@@ -15,6 +15,11 @@ bluxq --help
 - The core CLI auto-discovers plugins and mounts them under their namespace.
 - Example: `bluxq guard status` invokes the Guard plugin's status command.
 
+### Security Scanner (bq-fsp)
+- Optional `bq-fsp` plugin adds `bq fsp` commands for static security scanning.
+- Default JSONL log output lives at `~/.config/blux-lite-gold/logs/fsp.jsonl` (overridden via `FSP_LOG`).
+- Supports `table`, `jsonl`, and `sarif` formats plus a Semgrep passthrough wrapper.
+
 ### External Plugin Example
 Add the following to a plugin package's `pyproject.toml`:
 ```toml

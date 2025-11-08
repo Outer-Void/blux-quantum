@@ -1,0 +1,6 @@
+- id: bq-fsp-scan
+  name: bq-fsp scan
+  entry: bq-fsp scan --staged -f jsonl
+  language: system
+  pass_filenames: false
+  stages: [commit]
