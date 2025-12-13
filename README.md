@@ -96,5 +96,9 @@ blux-quantum
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for coding standards, testing requirements, and release guidelines.
 
-## License
-Licensed under the [Apache License 2.0](LICENSE).
+## Licensing
+BLUX Quantum is dual-licensed to balance open community use with commercial adoption:
+- **Open Source:** Available under the [Apache License 2.0](LICENSE-APACHE), allowing permissive use, modification, and redistribution with proper notices and without warranty.
+- **Commercial:** Business or monetized use beyond the Apache terms requires a separate commercial license described in [LICENSE-COMMERCIAL](LICENSE-COMMERCIAL).
+
+For commercial licensing inquiries, contact: theoutervoid@outlook.com.
