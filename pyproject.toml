@@ -44,3 +44,6 @@ target-version = "py39"
 line-length = 100
 select = ["E", "F", "I", "UP", "B", "A"]
 ignore = ["B905"]
+
+[tool.setuptools]
+license-files = ["LICENSE", "LICENSE-APACHE", "LICENSE-COMMERCIAL", "NOTICE"]
