@@ -21,14 +21,23 @@ from rich.table import Table
 from rich.text import Text
 
 from .audit import audit_command, audit_log_path
-from .config import load_config
+from .config import CONFIG_FILENAME, load_config
 from .diagnostics import diagnose as run_diagnose
 from .diagnostics import doctor as run_doctor
 from .diagnostics import render_diagnostics_table
 from .environment import detect_environment
 from .orchestrator import OrchestrationError, evaluate_task, parse_context, route_task
 from .plugins.quantum_framework.loader import discover_plugins, mount_plugins
-from .reg_bridge import create_key, ensure_key_store, key_dir, load_keys, require_key, sign_path, verify_path
+from .reg_bridge import (
+    create_key,
+    ensure_key_store,
+    has_keys,
+    key_dir,
+    load_keys,
+    require_key,
+    sign_path,
+    verify_path,
+)
 from .stability import disable_stability, enable_stability, stability_status
 from .telemetry import record_event, telemetry_status
 from .tui import run as run_tui
@@ -213,6 +222,8 @@ def env_export(format: str = typer.Option("dotenv", "--format", help="Export for
 @app.command("completion")
 @audited("completion")
 def completion(shell: str = typer.Argument(..., help="bash|zsh|fish")) -> None:
+    """Generate shell completion script for the given shell."""
+
     result = subprocess.run([sys.executable, sys.argv[0], "--show-completion", shell], capture_output=True, text=True)
     typer.echo(result.stdout or result.stderr)
 
@@ -223,6 +234,8 @@ system_app = typer.Typer(help="System bootstrap/install/verification commands")
 @system_app.command("bootstrap")
 @audited("system.bootstrap")
 def system_bootstrap() -> None:
+    """Prepare the BLUX home with config, logs, keys, and state directories."""
+
     base = detect_environment().config_dir
     ensure_key_store()
     (base / "logs").mkdir(parents=True, exist_ok=True)
@@ -233,12 +246,16 @@ def system_bootstrap() -> None:
 @system_app.command("install")
 @audited("system.install")
 def system_install() -> None:
+    """Install constellation dependencies (placeholder)."""
+
     typer.echo("Installing constellation dependencies (stub)")
 
 
 @system_app.command("doctor")
 @audited("system.doctor")
 def system_doctor(json_output: bool = typer.Option(False, "--json", help="Emit doctor recommendations as JSON.")) -> None:
+    """Run health checks and emit diagnostics/recommendations."""
+
     payload = run_doctor()
     if json_output:
         typer.echo(json.dumps(payload, indent=2))
@@ -253,18 +270,30 @@ def system_doctor(json_output: bool = typer.Option(False, "--json", help="Emit d
 @system_app.command("status")
 @audited("system.status")
 def system_status() -> None:
+    """Summarize config paths, telemetry, plugins, and key store state."""
+
     env = detect_environment()
+    telemetry = telemetry_status()
     status = {
-        "config": str(env.config_dir),
-        "keys": len(load_keys()),
+        "config_dir": str(env.config_dir),
+        "config_file": str(env.config_dir / CONFIG_FILENAME),
+        "audit_log": str(audit_log_path()),
+        "key_store": {
+            "path": str(key_dir()),
+            "present": has_keys(),
+            "count": len(load_keys()),
+        },
+        "telemetry": telemetry,
         "plugins": [plugin.name for plugin in discover_plugins()],
     }
-    typer.echo(json.dumps(status))
+    typer.echo(json.dumps(status, indent=2))
 
 
 @system_app.command("up")
 @audited("system.up")
 def system_up() -> None:
+    """Start the BLUX constellation (requires a registered key)."""
+
     gated("system.up")
     typer.echo("Launching BLUX constellation (stub)")
 
@@ -272,6 +301,8 @@ def system_up() -> None:
 @system_app.command("down")
 @audited("system.down")
 def system_down() -> None:
+    """Stop the BLUX constellation (requires a registered key)."""
+
     gated("system.down")
     typer.echo("Stopping BLUX constellation (stub)")
 
@@ -279,6 +310,8 @@ def system_down() -> None:
 @system_app.command("update")
 @audited("system.update")
 def system_update() -> None:
+    """Update BLUX constellation components (requires a registered key)."""
+
     gated("system.update")
     typer.echo("Updating BLUX constellation (stub)")
 
@@ -286,6 +319,8 @@ def system_update() -> None:
 @system_app.command("repair")
 @audited("system.repair")
 def system_repair() -> None:
+    """Repair BLUX constellation components (requires a registered key)."""
+
     gated("system.repair")
     typer.echo("Repairing BLUX constellation (stub)")
 
@@ -293,6 +328,8 @@ def system_repair() -> None:
 @system_app.command("clean")
 @audited("system.clean")
 def system_clean() -> None:
+    """Clean caches/logs (requires a registered key)."""
+
     gated("system.clean")
     typer.echo("Cleaning caches/logs (stub)")
 
@@ -300,6 +337,8 @@ def system_clean() -> None:
 @system_app.command("bootstrap-diagnostics", hidden=True)
 @audited("system.bootstrap_diagnostics")
 def system_diagnostics(json_output: bool = typer.Option(False, "--json", help="Emit diagnostics as JSON.")) -> None:
+    """Emit extended diagnostics (hidden helper for bootstrap)."""
+
     payload = run_diagnose()
     if json_output:
         typer.echo(json.dumps(payload, indent=2))
@@ -313,6 +352,8 @@ app.add_typer(system_app, name="system")
 @app.command("launch")
 @audited("launch")
 def launch(quiet: bool = typer.Option(False, "--quiet", help="Suppress theatrics.")) -> None:
+    """Launch the constellation (shortcut that calls system up)."""
+
     if not quiet:
         console.print("[bold green]Launching BLUX constellation in 3..2..1[/bold green]")
     system_up()
@@ -324,6 +365,8 @@ key_app = typer.Typer(help="Reg key management and signing")
 @key_app.command("init")
 @audited("key.init")
 def key_init(label: str = typer.Option("default", "--label", help="Key label.")) -> None:
+    """Create a new registration key."""
+
     path = create_key(label=label)
     typer.echo(f"Created key at {path}")
 
@@ -331,6 +374,8 @@ def key_init(label: str = typer.Option("default", "--label", help="Key label."))
 @key_app.command("list")
 @audited("key.list")
 def key_list() -> None:
+    """List stored keys."""
+
     keys = load_keys()
     typer.echo(json.dumps(list(keys.values()), indent=2))
 
@@ -338,6 +383,8 @@ def key_list() -> None:
 @key_app.command("show")
 @audited("key.show")
 def key_show(key_id: str) -> None:
+    """Show metadata for a specific key."""
+
     keys = load_keys()
     if key_id not in keys:
         raise typer.BadParameter("Unknown key id")
@@ -347,6 +394,8 @@ def key_show(key_id: str) -> None:
 @key_app.command("rotate")
 @audited("key.rotate")
 def key_rotate(key_id: str) -> None:
+    """Rotate a key by creating a successor."""
+
     gated("key.rotate")
     new_path = create_key(label=f"rotated-from-{key_id}")
     typer.echo(f"Rotated key -> {new_path}")
@@ -355,6 +404,8 @@ def key_rotate(key_id: str) -> None:
 @key_app.command("revoke")
 @audited("key.revoke")
 def key_revoke(key_id: str) -> None:
+    """Revoke a key from the store."""
+
     gated("key.revoke")
     target = key_dir() / f"{key_id}.json"
     if target.exists():
@@ -365,6 +416,8 @@ def key_revoke(key_id: str) -> None:
 @key_app.command("sign")
 @audited("key.sign")
 def key_sign(kind: str = typer.Argument(..., help="manifest|diff"), path: Path = typer.Argument(...)) -> None:
+    """Sign a manifest or diff file."""
+
     gated("key.sign")
     signature = sign_path(path)
     typer.echo(signature)
@@ -373,6 +426,8 @@ def key_sign(kind: str = typer.Argument(..., help="manifest|diff"), path: Path =
 @key_app.command("verify")
 @audited("key.verify")
 def key_verify(kind: str = typer.Argument(..., help="manifest|diff"), path: Path = typer.Argument(...), signature: str = typer.Argument(...)) -> None:
+    """Verify a manifest or diff signature."""
+
     gated("key.verify")
     ok = verify_path(path, signature)
     if not ok:
@@ -383,6 +438,8 @@ def key_verify(kind: str = typer.Argument(..., help="manifest|diff"), path: Path
 @key_app.command("audit-verify")
 @audited("key.audit.verify_chain")
 def key_audit_verify_chain() -> None:
+    """Validate the audit JSONL chain stored on disk."""
+
     log_path = audit_log_path()
     if not log_path.exists():
         raise typer.Exit(code=1)
@@ -403,12 +460,16 @@ app.add_typer(key_app, name="key")
 @app.command("aim")
 @audited("aim")
 def aim(intent: str = typer.Argument(..., help="High-level intent")) -> None:
+    """Queue a high-level intent for routing."""
+
     typer.echo(json.dumps({"intent": intent, "route": "lite", "status": "queued"}))
 
 
 @app.command("run")
 @audited("run")
 def run(task: str = typer.Argument(..., help="Task file or prompt")) -> None:
+    """Route and execute a task prompt or file."""
+
     try:
         decision = route_task(task, None)
         record_event("cli.run", {"task": task, "route": decision.route})
@@ -423,6 +484,8 @@ route_app = typer.Typer(help="Routing helpers")
 @route_app.command("explain")
 @audited("route.explain")
 def route_explain(task: str = typer.Argument(..., help="Task description")) -> None:
+    """Explain how the orchestrator would route the task."""
+
     try:
         decision = route_task(task, None)
     except OrchestrationError as exc:
@@ -433,6 +496,8 @@ def route_explain(task: str = typer.Argument(..., help="Task description")) -> N
 @route_app.command("dry-run")
 @audited("route.dry_run")
 def route_dry_run(task: str = typer.Argument(..., help="Task description")) -> None:
+    """Simulate routing without executing the task."""
+
     try:
         decision = route_task(task, None)
     except OrchestrationError as exc:
@@ -446,6 +511,8 @@ app.add_typer(route_app, name="route")
 @app.command("eval")
 @audited("eval")
 def evaluate(task: str = typer.Argument(..., help="Task description that was executed."), result: str = typer.Option(None, "--result", help="Optional JSON result payload.")) -> None:
+    """Evaluate a completed task with an optional JSON payload."""
+
     try:
         result_payload: Dict[str, Any] | None = parse_context(result) if result else None
         summary = evaluate_task(task, result_payload)
@@ -457,7 +524,20 @@ def evaluate(task: str = typer.Argument(..., help="Task description that was exe
 @app.command("demo")
 @audited("demo")
 def demo(target: str = typer.Argument(..., help="orchestrator|toolbox")) -> None:
-    typer.echo(json.dumps({"demo": target, "status": "ready"}))
+    """Produce demo artifacts for orchestrator or toolbox showcases."""
+
+    env = detect_environment()
+    demo_root = env.config_dir / "demo"
+    demo_root.mkdir(parents=True, exist_ok=True)
+    artifact = demo_root / f"{target}-{int(time.time())}.json"
+    payload = {
+        "demo": target,
+        "status": "ready",
+        "generated_at": time.time(),
+        "config_dir": str(env.config_dir),
+    }
+    artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    typer.echo(json.dumps({"demo": target, "artifact": str(artifact)}, indent=2))
 
 
 doctrine_app = typer.Typer(help="Doctrine governance bridge")
@@ -466,24 +546,32 @@ doctrine_app = typer.Typer(help="Doctrine governance bridge")
 @doctrine_app.command("check")
 @audited("doctrine.check")
 def doctrine_check(target: str = typer.Argument(..., help="Intent or plan")) -> None:
+    """Check a plan or intent against doctrine policies."""
+
     typer.echo(json.dumps({"target": target, "policy": "ok"}))
 
 
 @doctrine_app.command("rules")
 @audited("doctrine.rules.list")
 def doctrine_rules_list() -> None:
+    """List available doctrine rules."""
+
     typer.echo(json.dumps({"rules": ["default"], "count": 1}))
 
 
 @doctrine_app.command("rules-test")
 @audited("doctrine.rules.test")
 def doctrine_rules_test(rule_id: str = typer.Argument(...), input: str = typer.Option("{}", "--input", help="JSON input")) -> None:
+    """Test a doctrine rule with JSON input."""
+
     typer.echo(json.dumps({"rule": rule_id, "input": json.loads(input)}))
 
 
 @doctrine_app.command("enforce")
 @audited("doctrine.enforce")
 def doctrine_enforce(mode: str = typer.Argument(..., help="on|off")) -> None:
+    """Toggle doctrine enforcement."""
+
     gated("doctrine.enforce")
     typer.echo(json.dumps({"enforcement": mode}))
 
@@ -491,6 +579,8 @@ def doctrine_enforce(mode: str = typer.Argument(..., help="on|off")) -> None:
 @doctrine_app.command("report")
 @audited("doctrine.report")
 def doctrine_report(format: str = typer.Option("md", "--format", help="md|json")) -> None:
+    """Render a doctrine report in markdown or JSON."""
+
     typer.echo(json.dumps({"format": format, "status": "ok"}))
 
 
@@ -503,36 +593,48 @@ guard_app = typer.Typer(help="Guard security cockpit")
 @guard_app.command("status")
 @audited("guard.status")
 def guard_status() -> None:
+    """Summarize guard subsystem status."""
+
     typer.echo(json.dumps({"guard": "ok"}))
 
 
 @guard_app.command("ps")
 @audited("guard.ps")
 def guard_ps() -> None:
+    """List guard-related processes (placeholder)."""
+
     typer.echo(json.dumps({"processes": []}))
 
 
 @guard_app.command("net")
 @audited("guard.net")
 def guard_net() -> None:
+    """List guard-related network ports (placeholder)."""
+
     typer.echo(json.dumps({"ports": []}))
 
 
 @guard_app.command("perms")
 @audited("guard.perms")
 def guard_perms_scan(path: Path = typer.Argument(..., help="Path to scan")) -> None:
+    """Scan a path for permission anomalies."""
+
     typer.echo(json.dumps({"path": str(path), "perms": "ok"}))
 
 
 @guard_app.command("secrets")
 @audited("guard.secrets")
 def guard_secrets_scan(path: Path = typer.Argument(..., help="Path to scan")) -> None:
+    """Scan a path for potential secrets."""
+
     typer.echo(json.dumps({"path": str(path), "secrets": []}))
 
 
 @guard_app.command("quarantine")
 @audited("guard.quarantine")
 def guard_quarantine(item: str = typer.Argument(..., help="Item to quarantine")) -> None:
+    """Quarantine an item (requires a registered key)."""
+
     gated("guard.quarantine")
     typer.echo(json.dumps({"quarantined": item}))
 
@@ -540,6 +642,8 @@ def guard_quarantine(item: str = typer.Argument(..., help="Item to quarantine"))
 @guard_app.command("report")
 @audited("guard.report")
 def guard_report(format: str = typer.Option("md", "--format", help="md|sarif")) -> None:
+    """Generate a guard report."""
+
     typer.echo(json.dumps({"format": format, "status": "ok"}))
 
 
@@ -549,6 +653,8 @@ app.add_typer(guard_app, name="guard")
 @app.command("stability")
 @audited("stability")
 def stability(mode: str = typer.Argument(..., help="enable|disable")) -> None:
+    """Enable or disable stability mode."""
+
     if mode == "enable":
         enable_stability()
     elif mode == "disable":
@@ -562,24 +668,32 @@ telemetry_app = typer.Typer(help="Telemetry controls")
 @telemetry_app.command("status")
 @audited("telemetry.status")
 def telemetry_status_cmd() -> None:
+    """Show telemetry configuration and storage paths."""
+
     typer.echo(json.dumps(telemetry_status(), indent=2))
 
 
 @telemetry_app.command("tail")
 @audited("telemetry.tail")
 def telemetry_tail() -> None:
+    """Placeholder tail of telemetry events."""
+
     typer.echo("telemetry tail not implemented - JSONL stream placeholder")
 
 
 @telemetry_app.command("export")
 @audited("telemetry.export")
 def telemetry_export(format: str = typer.Option("json", "--format", help="json|sqlite|md")) -> None:
+    """Export telemetry data in a selected format."""
+
     typer.echo(json.dumps({"format": format, "status": "ok"}))
 
 
 @telemetry_app.command("off")
 @audited("telemetry.off")
 def telemetry_off() -> None:
+    """Disable telemetry for the current session."""
+
     os.environ["BLUXQ_TELEMETRY"] = "off"
     typer.echo("telemetry disabled")
 
@@ -608,12 +722,16 @@ def _god_passthrough(args: list[str]) -> None:
 @help_app.command("build")
 @audited("help.build")
 def help_build(format: str = typer.Option("console", "--format", help="console|md|html|json"), limit: int = typer.Option(50, "--limit")) -> None:
+    """Build a help index via the GOD bridge when available."""
+
     _god_passthrough(["build", "--format", format, "--limit", str(limit)])
 
 
 @help_app.command("search")
 @audited("help.search")
 def help_search(query: str = typer.Argument(...), names_only: bool = typer.Option(False, "--names-only")) -> None:
+    """Search help topics through the GOD bridge."""
+
     args = ["search", query]
     if names_only:
         args.append("--names-only")
@@ -623,12 +741,16 @@ def help_search(query: str = typer.Argument(...), names_only: bool = typer.Optio
 @help_app.command("info")
 @audited("help.info")
 def help_info(topic: str = typer.Argument(...)) -> None:
+    """Show detailed help for a specific topic."""
+
     _god_passthrough(["info", topic])
 
 
 @help_app.command("stats")
 @audited("help.stats")
 def help_stats() -> None:
+    """Display aggregated help statistics."""
+
     _god_passthrough(["stats"])
 
 
@@ -638,6 +760,8 @@ app.add_typer(help_app, name="help")
 @app.command("tui")
 @audited("tui")
 def tui() -> None:  # pragma: no cover - interactive command
+    """Launch the interactive Textual user interface."""
+
     run_tui()
 
 
