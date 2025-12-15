@@ -47,3 +47,6 @@ ignore = ["B905"]
 
 [tool.setuptools]
 license-files = ["LICENSE", "LICENSE-APACHE", "LICENSE-COMMERCIAL", "NOTICE"]
+
+[tool.setuptools.packages.find]
+include = ["blux_quantum*", "bq*", "bq_fsp*"]

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -45,3 +46,11 @@ def test_gating_denies_without_key(tmp_path: Path) -> None:
     result = runner.invoke(cli.app, ["system", "up"], env=_env(tmp_path))
     assert result.exit_code != 0
     assert "Reg key required" in result.stdout
+
+
+def test_system_doctor(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(cli.app, ["system", "doctor", "--json"], env=_env(tmp_path))
+    assert result.exit_code == 0
+    payload = json.loads(result.stdout)
+    assert "checks" in payload
