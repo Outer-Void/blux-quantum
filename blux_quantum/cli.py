@@ -25,6 +25,7 @@ from .config import CONFIG_FILENAME, load_config
 from .diagnostics import diagnose as run_diagnose
 from .diagnostics import doctor as run_doctor
 from .diagnostics import render_diagnostics_table
+from .envelope import create_envelope
 from .environment import detect_environment
 from .orchestrator import OrchestrationError, evaluate_task, parse_context, route_task
 from .plugins.quantum_framework.loader import discover_plugins, mount_plugins
@@ -164,6 +165,46 @@ def _root(ctx: typer.Context, verbose: bool = typer.Option(False, "--verbose")) 
     render_banner()
 
 
+def _emit_envelope(envelope: Dict[str, Any]) -> None:
+    typer.echo(json.dumps(envelope, indent=2))
+
+
+def _simulate_phase0(task: str, capability_ref: str) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    trace_id = uuid.uuid4().hex
+    request = create_envelope(
+        "request",
+        {
+            "task": task,
+            "intent": "dispatch",
+            "capability_ref": capability_ref,
+        },
+        source="blux.dispatch",
+        trace_id=trace_id,
+    )
+    discernment_report = create_envelope(
+        "discernment_report",
+        {
+            "task": task,
+            "route": "lite",
+            "confidence": 0.42,
+            "notes": "stub discernment report (Phase 0)",
+        },
+        source="blux.guard.stub",
+        trace_id=trace_id,
+    )
+    guard_receipt = create_envelope(
+        "guard_receipt",
+        {
+            "decision": "ALLOW",
+            "reason": "stub guard receipt (Phase 0)",
+            "capability_ref": capability_ref,
+        },
+        source="blux.guard.stub",
+        trace_id=trace_id,
+    )
+    return request, discernment_report, guard_receipt
+
+
 @app.command()
 @audited("version")
 def version() -> None:
@@ -187,6 +228,29 @@ def about() -> None:
     """Show BLUX Quantum about information."""
 
     typer.echo("BLUX Quantum God Mode :: unified operator cockpit")
+
+
+@app.command("doctor")
+@audited("doctor")
+def doctor() -> None:
+    """Report environment details and contract presence hints."""
+
+    env = detect_environment().as_dict()
+    config = load_config()
+    payload = {
+        "environment": env,
+        "contracts": {
+            "phase0_envelope": "supported",
+            "discernment_report": "expected from guard",
+            "guard_receipt": "required for execution",
+        },
+        "endpoints": {
+            "ca": config.get("ca_endpoint") or "unset",
+            "guard": config.get("guard_endpoint") or "unset",
+            "lite": config.get("lite_endpoint") or "unset",
+        },
+    }
+    typer.echo(json.dumps(payload, indent=2))
 
 
 @app.command("env")
@@ -467,15 +531,25 @@ def aim(intent: str = typer.Argument(..., help="High-level intent")) -> None:
 
 @app.command("run")
 @audited("run")
-def run(task: str = typer.Argument(..., help="Task file or prompt")) -> None:
-    """Route and execute a task prompt or file."""
+def run(
+    task: str = typer.Argument(..., help="Task file or prompt"),
+    capability_ref: str = typer.Option(
+        "capability:blux.dispatch",
+        "--capability-ref",
+        help="Capability reference string.",
+    ),
+) -> None:
+    """Dispatch a task, requiring a guard receipt before execution."""
 
-    try:
-        decision = route_task(task, None)
-        record_event("cli.run", {"task": task, "route": decision.route})
-        typer.echo(json.dumps(decision.as_dict(), indent=2))
-    except OrchestrationError as exc:
-        raise typer.BadParameter(str(exc))
+    request, discernment_report, guard_receipt = _simulate_phase0(task, capability_ref)
+    _emit_envelope(request)
+    _emit_envelope(discernment_report)
+    _emit_envelope(guard_receipt)
+    decision = guard_receipt["payload"].get("decision")
+    if decision != "ALLOW":
+        typer.echo("Refusing execution: guard_receipt did not authorize this action.")
+        raise typer.Exit(code=1)
+    typer.echo("Execution authorized by guard_receipt (stub).")
 
 
 route_app = typer.Typer(help="Routing helpers")
@@ -506,6 +580,48 @@ def route_dry_run(task: str = typer.Argument(..., help="Task description")) -> N
 
 
 app.add_typer(route_app, name="route")
+
+
+@app.command("dry-run")
+@audited("dry-run")
+def dry_run(
+    task: str = typer.Argument(..., help="Task file or prompt"),
+    capability_ref: str = typer.Option(
+        "capability:blux.dispatch",
+        "--capability-ref",
+        help="Capability reference string.",
+    ),
+) -> None:
+    """Emit Phase 0 envelopes without executing."""
+
+    request, discernment_report, guard_receipt = _simulate_phase0(task, capability_ref)
+    _emit_envelope(request)
+    _emit_envelope(discernment_report)
+    _emit_envelope(guard_receipt)
+
+
+@app.command("audit")
+@audited("audit")
+def audit() -> None:
+    """Show where audit logs will be stored."""
+
+    typer.echo(str(audit_log_path()))
+
+
+@app.command("status")
+@audited("status")
+def status() -> None:
+    """Show configured component endpoints."""
+
+    config = load_config()
+    payload = {
+        "components": {
+            "ca_endpoint": config.get("ca_endpoint") or "unset",
+            "guard_endpoint": config.get("guard_endpoint") or "unset",
+            "lite_endpoint": config.get("lite_endpoint") or "unset",
+        }
+    }
+    typer.echo(json.dumps(payload, indent=2))
 
 
 @app.command("eval")
