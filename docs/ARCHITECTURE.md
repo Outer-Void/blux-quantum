@@ -1,12 +1,11 @@
 # Architecture
 
 ## Core CLI
-- Built with [Typer](https://typer.tiangolo.com/) providing the `bluxq` command.
-- Commands implement health checks, stability toggles, telemetry triggers, and plugin enumeration.
+- Built with [Typer](https://typer.tiangolo.com/) providing the `blux` command.
+- Commands implement request creation, routing, and audit previews.
 
 ## Plugin Loader
 - Discovers entry points published under `blux.plugins`.
-- Provides built-in examples for Guard, Lite, and Doctrine modules.
 - Mounts Typer applications dynamically beneath the root CLI namespace.
 
 ## Telemetry Subsystem
@@ -18,10 +17,6 @@
 - Supports layered configuration: environment variables, user config directory, and local project files.
 - YAML-based configuration merged with dictionary semantics.
 
-## Stability Mode
-- Provides enable/disable hooks that emit telemetry events.
-- Designed for future integration with Guard/Commander quiesce and lockdown features.
-
 ## Ecosystem Map
-- Guard, Lite, Doctrine examples showcase how ecosystem services extend `bluxq`.
+- Guard and Lite extend the ecosystem alongside cA.
 - Additional products can publish entry points to join the command surface without modifying the core CLI.

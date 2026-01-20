@@ -15,9 +15,9 @@ pip install -e .[dev]
 ```
 
 ## Shell Completion
-Enable Typer auto-completion by exporting `_BLUXQ_COMPLETE`:
+Enable Typer auto-completion by exporting `_BLUX_COMPLETE`:
 ```bash
-eval "$(bluxq --install-completion)"
+eval "$(blux --install-completion)"
 ```
 
 ## Termux Notes
@@ -25,7 +25,7 @@ eval "$(bluxq --install-completion)"
 - Use `pip install --user blux-quantum` and ensure `$HOME/.local/bin` is on PATH.
 
 ## PowerShell Alias
-- Run `scripts/demo_install_alias.ps1` to register a convenience alias for `bluxq`.
+- Run `scripts/demo_install_alias.ps1` to register a convenience alias for `blux`.
 
 ## Telemetry Controls
 - Disable telemetry with `BLUXQ_TELEMETRY=off`.

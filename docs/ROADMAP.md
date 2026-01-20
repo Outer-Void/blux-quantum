@@ -12,5 +12,5 @@
 
 ## Long Term
 - Release signed binaries for Windows and macOS.
-- Introduce plugin marketplace discovery within `bluxq`.
+- Introduce plugin marketplace discovery within `blux`.
 - Support distributed command execution via BLUX Commander.
