@@ -1,9 +1,11 @@
-# BLUX Quantum (`bluxq`)
+# BLUX Quantum (`blux`)
 
-BLUX Quantum is the unified operator CLI for the BLUX constellation. The `bluxq` binary
+BLUX Quantum is the unified operator CLI for the BLUX constellation. The `blux` binary
 provides a single, auditable control spine with built-in governance (doctrine), guard
 instrumentation, telemetry toggles, and demo tooling. Everything shipped here is
 self-contained—no external repositories are required.
+
+The legacy `bluxq` binary remains available as a backward-compatible alias.
 
 ## Install
 ```bash
@@ -15,22 +17,27 @@ pip install -e .[dev]
 ## 60-second quickstart
 1. Inspect the surface and ensure dependencies resolve:
    ```bash
-   BLUXQ_BANNER=off bluxq system doctor
+   BLUXQ_BANNER=off blux system doctor
    ```
 2. Bootstrap the local operator home (config, logs, keys, state):
    ```bash
-   bluxq system bootstrap
+   blux system bootstrap
    ```
 3. Run the required demos (artifacts are written under the config directory):
    ```bash
-   bluxq demo orchestrator
-   bluxq demo toolbox
+   blux demo orchestrator
+   blux demo toolbox
    ```
 4. Verify the constellation wiring and telemetry paths:
    ```bash
-   bluxq system status
-   bluxq telemetry status
+   blux system status
+   blux telemetry status
    ```
+
+Legacy alias (still supported):
+```bash
+bluxq system doctor
+```
 
 ## Full command reference
 The section below is generated directly from the Typer application surface (including bundled

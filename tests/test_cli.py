@@ -6,7 +6,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from blux_quantum import cli
+from blux_quantum import cli, dispatch
 from blux_quantum.audit import audit_log_path
 
 
@@ -54,3 +54,14 @@ def test_system_doctor(tmp_path: Path) -> None:
     assert result.exit_code == 0
     payload = json.loads(result.stdout)
     assert "checks" in payload
+
+
+def test_blux_dispatch_status_preview(tmp_path: Path) -> None:
+    runner = CliRunner()
+    result = runner.invoke(dispatch.app, ["status"], env=_env(tmp_path))
+    assert result.exit_code == 0
+    lines = result.stdout.splitlines()
+    preview = json.loads(lines[0])
+    status_payload = json.loads("\n".join(lines[1:]))
+    assert "execution_preview" in preview
+    assert "components" in status_payload
