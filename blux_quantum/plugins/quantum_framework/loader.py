@@ -9,9 +9,7 @@ import typer
 from importlib import metadata
 from rich import print
 
-DEFAULT_PLUGINS = {
-    "doctrine": "blux_quantum.plugins.examples.doctrine_plugin:get_app",
-}
+DEFAULT_PLUGINS: dict[str, str] = {}
 
 
 @dataclass
@@ -57,7 +55,7 @@ def discover_plugins() -> List[PluginInfo]:
             _resolve_plugin(entry)
             plugins.append(PluginInfo(name=entry.name, app_factory=target, loaded=True))
         except Exception as exc:  # pragma: no cover - defensive
-            print(f"[bluxq] plugin '{entry.name}' failed to load: {exc}")
+            print(f"[blux] plugin '{entry.name}' failed to load: {exc}")
             plugins.append(
                 PluginInfo(name=entry.name, app_factory=target, loaded=False, error=str(exc))
             )
@@ -73,7 +71,7 @@ def mount_plugins(app: typer.Typer) -> List[PluginInfo]:
             app.add_typer(plugin_app, name=entry.name)
             results.append(PluginInfo(name=entry.name, app_factory=target, loaded=True))
         except Exception as exc:  # pragma: no cover - defensive
-            print(f"[bluxq] plugin '{entry.name}' failed to mount: {exc}")
+            print(f"[blux] plugin '{entry.name}' failed to mount: {exc}")
             results.append(
                 PluginInfo(name=entry.name, app_factory=target, loaded=False, error=str(exc))
             )

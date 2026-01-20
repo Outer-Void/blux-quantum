@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "blux-quantum"
 version = "0.1.0"
-description = "BLUX Quantum — Unified Operator CLI (bluxq) for the BLUX ecosystem"
+description = "BLUX Quantum — Dispatcher-only activator (blux) for the BLUX ecosystem"
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
@@ -32,13 +32,8 @@ dependencies = [
 dev = ["pytest", "mypy", "ruff", "pre-commit", "mkdocs-material"]
 
 [project.scripts]
-blux = "blux_quantum.dispatch:app"
+blux = "blux_quantum.cli:app"
 bluxq = "blux_quantum.cli:app"
-
-[project.entry-points."blux.plugins"]
-guard = "blux_quantum.plugins.examples.guard_plugin:get_app"
-lite = "blux_quantum.plugins.examples.lite_plugin:get_app"
-doctrine = "blux_quantum.plugins.examples.doctrine_plugin:get_app"
 
 [tool.ruff]
 target-version = "py39"
