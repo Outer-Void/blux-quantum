@@ -1,8 +1,8 @@
 # BLUX Quantum (`blux`)
 
-BLUX Quantum is the unified operator CLI for the BLUX constellation. The `blux` binary
-provides a single, auditable control spine with built-in governance (doctrine), guard
-instrumentation, telemetry toggles, and demo tooling. Everything shipped here is
+BLUX Quantum is the unified router CLI for the BLUX constellation. The `blux` binary
+provides a single, auditable control spine that routes requests between cA, Guard,
+and Lite without making permission decisions. Everything shipped here is
 self-contained—no external repositories are required.
 
 The legacy `bluxq` binary remains available as a backward-compatible alias.
@@ -28,7 +28,13 @@ pip install -e .[dev]
    blux demo orchestrator
    blux demo toolbox
    ```
-4. Verify the constellation wiring and telemetry paths:
+4. Route a task through the router-only pipeline (artifacts are persisted locally):
+   ```bash
+   blux ask "Summarize the repo" --confirm --out-dir ./artifacts
+   blux dry-run "Plan the change" --token token-123 --revocations revoke-1,revoke-2 --out-dir ./artifacts
+   blux run "Apply the change" --token token-123 --confirm --out-dir ./artifacts
+   ```
+5. Verify the constellation wiring and telemetry paths:
    ```bash
    blux system status
    blux telemetry status
@@ -37,6 +43,13 @@ pip install -e .[dev]
 Legacy alias (still supported):
 ```bash
 bluxq system doctor
+```
+
+## Router-only examples
+```bash
+blux ask "Draft a release plan" --confirm --out-dir ./artifacts
+blux dry-run "Draft the run" --token tok-001 --revocations revoke-9 --out-dir ./artifacts
+blux run "Execute the run" --token tok-001 --confirm --out-dir ./artifacts
 ```
 
 ## Full command reference

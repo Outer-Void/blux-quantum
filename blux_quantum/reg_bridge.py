@@ -4,8 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
-import subprocess
 import uuid
 from pathlib import Path
 from typing import Dict, Iterable
@@ -59,10 +57,6 @@ def has_keys() -> bool:
     return any(True for _ in _keys())
 
 
-def _blux_reg() -> str | None:
-    return shutil.which("blux-reg")
-
-
 def require_key(action: str) -> None:
     outcome = "allow" if has_keys() else "deny"
     append_event({"cmd": "reg.require", "args": {"action": action}, "outcome": outcome})
@@ -87,11 +81,6 @@ def sign_path(path: Path) -> str:
     if not key:
         raise PermissionError("No Reg keys available")
     content = path.read_bytes()
-    reg_cli = _blux_reg()
-    if reg_cli:
-        result = subprocess.run([reg_cli, "sign", str(path)], capture_output=True, text=True, check=False)
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
     return _local_signature(key["secret"], content)
 
 
@@ -100,10 +89,6 @@ def verify_path(path: Path, signature: str) -> bool:
     if not key:
         return False
     content = path.read_bytes()
-    reg_cli = _blux_reg()
-    if reg_cli:
-        result = subprocess.run([reg_cli, "verify", str(path), signature], capture_output=True, text=True, check=False)
-        return result.returncode == 0
     return _local_signature(key["secret"], content) == signature
 
 

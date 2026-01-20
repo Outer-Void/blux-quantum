@@ -4,8 +4,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import shutil
-import subprocess
 import sys
 import time
 import uuid
@@ -169,41 +167,129 @@ def _emit_envelope(envelope: Dict[str, Any]) -> None:
     typer.echo(json.dumps(envelope, indent=2))
 
 
-def _simulate_phase0(task: str, capability_ref: str) -> tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+def _parse_revocations(revocations: str | None) -> list[str]:
+    if not revocations:
+        return []
+    return [item.strip() for item in revocations.split(",") if item.strip()]
+
+
+def _default_out_dir() -> Path:
+    env = detect_environment()
+    out_dir = env.config_dir / "artifacts" / "router"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return out_dir
+
+
+def _persist_artifacts(envelopes: list[Dict[str, Any]], out_dir: Path) -> list[Path]:
+    out_dir.mkdir(parents=True, exist_ok=True)
+    artifacts: list[Path] = []
+    for index, envelope in enumerate(envelopes, start=1):
+        name = f"{index:02d}-{envelope['type']}-{envelope['trace_id']}.json"
+        path = out_dir / name
+        path.write_text(json.dumps(envelope, indent=2), encoding="utf-8")
+        artifacts.append(path)
+    return artifacts
+
+
+def _route_pipeline(
+    task: str,
+    token: str | None,
+    revocations: list[str],
+    confirm: bool,
+    include_guard: bool,
+    include_lite: bool,
+    dry_run: bool,
+) -> list[Dict[str, Any]]:
     trace_id = uuid.uuid4().hex
     request = create_envelope(
         "request",
         {
             "task": task,
-            "intent": "dispatch",
-            "capability_ref": capability_ref,
+            "token": token,
+            "revocations": revocations,
+            "confirm": confirm,
+            "dry_run": dry_run,
         },
-        source="blux.dispatch",
+        source="blux.router",
         trace_id=trace_id,
     )
-    discernment_report = create_envelope(
-        "discernment_report",
-        {
-            "task": task,
-            "route": "lite",
-            "confidence": 0.42,
-            "notes": "stub discernment report (Phase 0)",
-        },
-        source="blux.guard.stub",
-        trace_id=trace_id,
-    )
-    guard_receipt = create_envelope(
-        "guard_receipt",
-        {
-            "decision": "ALLOW",
-            "authorized": True,
-            "reason": "stub guard receipt (Phase 0)",
-            "capability_ref": capability_ref,
-        },
-        source="blux.guard.stub",
-        trace_id=trace_id,
-    )
-    return request, discernment_report, guard_receipt
+    envelopes: list[Dict[str, Any]] = [request]
+    ca_receipt: Dict[str, Any] | None = None
+    if confirm:
+        ca_request = create_envelope(
+            "ca_request",
+            {
+                "request_id": request["envelope_id"],
+                "task": task,
+                "token": token,
+                "revocations": revocations,
+                "dry_run": dry_run,
+            },
+            source="blux.ca",
+            trace_id=trace_id,
+        )
+        ca_receipt = create_envelope(
+            "ca_receipt",
+            {
+                "request_id": request["envelope_id"],
+                "status": "queued",
+                "dry_run": dry_run,
+            },
+            source="blux.ca",
+            trace_id=trace_id,
+        )
+        envelopes.extend([ca_request, ca_receipt])
+    guard_receipt: Dict[str, Any] | None = None
+    if include_guard:
+        guard_request = create_envelope(
+            "guard_request",
+            {
+                "request_id": request["envelope_id"],
+                "token": token,
+                "revocations": revocations,
+                "ca_receipt_id": ca_receipt["envelope_id"] if ca_receipt else None,
+                "dry_run": dry_run,
+            },
+            source="blux.guard",
+            trace_id=trace_id,
+        )
+        guard_receipt = create_envelope(
+            "guard_receipt",
+            {
+                "request_id": request["envelope_id"],
+                "authorized": None,
+                "status": "pending",
+                "dry_run": dry_run,
+            },
+            source="blux.guard",
+            trace_id=trace_id,
+        )
+        envelopes.extend([guard_request, guard_receipt])
+    if include_lite:
+        lite_request = create_envelope(
+            "lite_request",
+            {
+                "request_id": request["envelope_id"],
+                "guard_receipt_id": guard_receipt["envelope_id"] if guard_receipt else None,
+                "token": token,
+                "revocations": revocations,
+                "dry_run": dry_run,
+            },
+            source="blux.lite",
+            trace_id=trace_id,
+        )
+        lite_receipt = create_envelope(
+            "lite_receipt",
+            {
+                "request_id": request["envelope_id"],
+                "status": "queued",
+                "dry_run": dry_run,
+            },
+            source="blux.lite",
+            trace_id=trace_id,
+        )
+        envelopes.extend([lite_request, lite_receipt])
+    return envelopes
 
 
 @app.command()
@@ -242,7 +328,6 @@ def doctor() -> None:
         "environment": env,
         "contracts": {
             "phase0_envelope": "supported",
-            "discernment_report": "expected from guard",
             "guard_receipt": "required for execution",
         },
         "endpoints": {
@@ -289,8 +374,7 @@ def env_export(format: str = typer.Option("dotenv", "--format", help="Export for
 def completion(shell: str = typer.Argument(..., help="bash|zsh|fish")) -> None:
     """Generate shell completion script for the given shell."""
 
-    result = subprocess.run([sys.executable, sys.argv[0], "--show-completion", shell], capture_output=True, text=True)
-    typer.echo(result.stdout or result.stderr)
+    typer.echo("Run `blux --install-completion` or `blux --show-completion` for shell support.")
 
 
 system_app = typer.Typer(help="System bootstrap/install/verification commands")
@@ -530,27 +614,56 @@ def aim(intent: str = typer.Argument(..., help="High-level intent")) -> None:
     typer.echo(json.dumps({"intent": intent, "route": "cA", "status": "queued"}))
 
 
+@app.command("ask")
+@audited("ask")
+def ask(
+    task: str = typer.Argument(..., help="Task file or prompt"),
+    token: str | None = typer.Option(None, "--token", help="Optional token reference."),
+    revocations: str | None = typer.Option(None, "--revocations", help="Comma-separated revocation references."),
+    confirm: bool = typer.Option(False, "--confirm", help="Allow routing to cA."),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="Artifact output directory."),
+) -> None:
+    """Build a request envelope and optionally route to cA."""
+
+    envelopes = _route_pipeline(
+        task,
+        token,
+        _parse_revocations(revocations),
+        confirm,
+        include_guard=False,
+        include_lite=False,
+        dry_run=False,
+    )
+    for envelope in envelopes:
+        _emit_envelope(envelope)
+    artifacts = _persist_artifacts(envelopes, out_dir or _default_out_dir())
+    typer.echo(json.dumps({"trace_id": envelopes[0]["trace_id"], "artifacts": [str(p) for p in artifacts]}, indent=2))
+
+
 @app.command("run")
 @audited("run")
 def run(
     task: str = typer.Argument(..., help="Task file or prompt"),
-    capability_ref: str = typer.Option(
-        "capability:blux.dispatch",
-        "--capability-ref",
-        help="Capability reference string.",
-    ),
+    token: str | None = typer.Option(None, "--token", help="Optional token reference."),
+    revocations: str | None = typer.Option(None, "--revocations", help="Comma-separated revocation references."),
+    confirm: bool = typer.Option(False, "--confirm", help="Allow routing to cA."),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="Artifact output directory."),
 ) -> None:
-    """Dispatch a task, requiring a guard receipt before execution."""
+    """Route a task through cA, Guard, and Lite without local enforcement."""
 
-    request, discernment_report, guard_receipt = _simulate_phase0(task, capability_ref)
-    _emit_envelope(request)
-    _emit_envelope(discernment_report)
-    _emit_envelope(guard_receipt)
-    authorized = guard_receipt["payload"].get("authorized") is True
-    if not authorized:
-        typer.echo("Refusing execution: guard_receipt did not authorize this action.")
-        raise typer.Exit(code=1)
-    typer.echo("Execution authorized by guard_receipt (stub).")
+    envelopes = _route_pipeline(
+        task,
+        token,
+        _parse_revocations(revocations),
+        confirm,
+        include_guard=True,
+        include_lite=True,
+        dry_run=False,
+    )
+    for envelope in envelopes:
+        _emit_envelope(envelope)
+    artifacts = _persist_artifacts(envelopes, out_dir or _default_out_dir())
+    typer.echo(json.dumps({"trace_id": envelopes[0]["trace_id"], "artifacts": [str(p) for p in artifacts]}, indent=2))
 
 
 route_app = typer.Typer(help="Routing helpers")
@@ -587,18 +700,26 @@ app.add_typer(route_app, name="route")
 @audited("dry-run")
 def dry_run(
     task: str = typer.Argument(..., help="Task file or prompt"),
-    capability_ref: str = typer.Option(
-        "capability:blux.dispatch",
-        "--capability-ref",
-        help="Capability reference string.",
-    ),
+    token: str | None = typer.Option(None, "--token", help="Optional token reference."),
+    revocations: str | None = typer.Option(None, "--revocations", help="Comma-separated revocation references."),
+    confirm: bool = typer.Option(False, "--confirm", help="Allow routing to cA."),
+    out_dir: Path | None = typer.Option(None, "--out-dir", help="Artifact output directory."),
 ) -> None:
     """Emit Phase 0 envelopes without executing."""
 
-    request, discernment_report, guard_receipt = _simulate_phase0(task, capability_ref)
-    _emit_envelope(request)
-    _emit_envelope(discernment_report)
-    _emit_envelope(guard_receipt)
+    envelopes = _route_pipeline(
+        task,
+        token,
+        _parse_revocations(revocations),
+        confirm,
+        include_guard=True,
+        include_lite=True,
+        dry_run=True,
+    )
+    for envelope in envelopes:
+        _emit_envelope(envelope)
+    artifacts = _persist_artifacts(envelopes, out_dir or _default_out_dir())
+    typer.echo(json.dumps({"trace_id": envelopes[0]["trace_id"], "artifacts": [str(p) for p in artifacts]}, indent=2))
 
 
 @app.command("audit")
@@ -818,22 +939,7 @@ def telemetry_off() -> None:
 app.add_typer(telemetry_app, name="telemetry")
 
 
-help_app = typer.Typer(help="Global help index (GOD bridge)")
-
-
-def _god_exec() -> str | None:
-    return shutil.which("god")
-
-
-def _god_passthrough(args: list[str]) -> None:
-    god = _god_exec()
-    if not god:
-        typer.echo("GOD not installed; falling back to Typer help")
-        typer.echo(app.get_help())
-        return
-    result = subprocess.run([god, *args], capture_output=True, text=True)
-    output = result.stdout if result.stdout else result.stderr
-    typer.echo(output)
+help_app = typer.Typer(help="Global help index")
 
 
 @help_app.command("build")
@@ -841,7 +947,7 @@ def _god_passthrough(args: list[str]) -> None:
 def help_build(format: str = typer.Option("console", "--format", help="console|md|html|json"), limit: int = typer.Option(50, "--limit")) -> None:
     """Build a help index via the GOD bridge when available."""
 
-    _god_passthrough(["build", "--format", format, "--limit", str(limit)])
+    typer.echo(app.get_help())
 
 
 @help_app.command("search")
@@ -849,10 +955,7 @@ def help_build(format: str = typer.Option("console", "--format", help="console|m
 def help_search(query: str = typer.Argument(...), names_only: bool = typer.Option(False, "--names-only")) -> None:
     """Search help topics through the GOD bridge."""
 
-    args = ["search", query]
-    if names_only:
-        args.append("--names-only")
-    _god_passthrough(args)
+    typer.echo(f"Help search is not available in router-only mode (query={query}, names_only={names_only}).")
 
 
 @help_app.command("info")
@@ -860,7 +963,7 @@ def help_search(query: str = typer.Argument(...), names_only: bool = typer.Optio
 def help_info(topic: str = typer.Argument(...)) -> None:
     """Show detailed help for a specific topic."""
 
-    _god_passthrough(["info", topic])
+    typer.echo(app.get_help())
 
 
 @help_app.command("stats")
@@ -868,7 +971,7 @@ def help_info(topic: str = typer.Argument(...)) -> None:
 def help_stats() -> None:
     """Display aggregated help statistics."""
 
-    _god_passthrough(["stats"])
+    typer.echo("Help stats are unavailable in router-only mode.")
 
 
 app.add_typer(help_app, name="help")

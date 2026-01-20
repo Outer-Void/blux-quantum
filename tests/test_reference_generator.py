@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import subprocess
 import sys
+from subprocess import check_call
 
 
 def test_command_reference_generator(tmp_path):
@@ -19,13 +19,7 @@ def test_command_reference_generator(tmp_path):
         encoding="utf-8",
     )
 
-    result = subprocess.run(
-        [sys.executable, "scripts/generate_command_reference.py", "--readme", str(readme)],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    assert result.returncode == 0
+    check_call([sys.executable, "scripts/generate_command_reference.py", "--readme", str(readme)])
 
     content = readme.read_text(encoding="utf-8")
     assert "bluxq version" in content
