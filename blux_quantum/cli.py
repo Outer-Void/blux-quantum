@@ -196,6 +196,7 @@ def _simulate_phase0(task: str, capability_ref: str) -> tuple[Dict[str, Any], Di
         "guard_receipt",
         {
             "decision": "ALLOW",
+            "authorized": True,
             "reason": "stub guard receipt (Phase 0)",
             "capability_ref": capability_ref,
         },
@@ -526,7 +527,7 @@ app.add_typer(key_app, name="key")
 def aim(intent: str = typer.Argument(..., help="High-level intent")) -> None:
     """Queue a high-level intent for routing."""
 
-    typer.echo(json.dumps({"intent": intent, "route": "lite", "status": "queued"}))
+    typer.echo(json.dumps({"intent": intent, "route": "cA", "status": "queued"}))
 
 
 @app.command("run")
@@ -545,8 +546,8 @@ def run(
     _emit_envelope(request)
     _emit_envelope(discernment_report)
     _emit_envelope(guard_receipt)
-    decision = guard_receipt["payload"].get("decision")
-    if decision != "ALLOW":
+    authorized = guard_receipt["payload"].get("authorized") is True
+    if not authorized:
         typer.echo("Refusing execution: guard_receipt did not authorize this action.")
         raise typer.Exit(code=1)
     typer.echo("Execution authorized by guard_receipt (stub).")

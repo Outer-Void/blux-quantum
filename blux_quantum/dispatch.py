@@ -20,7 +20,7 @@ _PREVIEW_MATRIX: dict[str, dict[str, Any]] = {
     "status": {
         "capability_ref": "capability:blux.status",
         "next_repo": "Lite",
-        "guard_receipt_required": False,
+        "guard_receipt_required": True,
     },
     "aim": {
         "capability_ref": "capability:blux.aim",
