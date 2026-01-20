@@ -2,8 +2,9 @@
 
 BLUX Quantum is the unified router CLI for the BLUX constellation. The `blux` binary
 provides a single, auditable control spine that routes requests between cA, Guard,
-and Lite without making permission decisions. Everything shipped here is
-self-contained—no external repositories are required.
+and Lite without making permission decisions. Quantum does not decide outcomes or
+execute tools directly; it only dispatches and surfaces what will happen. Everything
+shipped here is self-contained—no external repositories are required.
 
 The legacy `bluxq` binary remains available as a backward-compatible alias.
 
