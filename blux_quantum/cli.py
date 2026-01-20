@@ -825,69 +825,6 @@ def doctrine_report(format: str = typer.Option("md", "--format", help="md|json")
 app.add_typer(doctrine_app, name="doctrine")
 
 
-guard_app = typer.Typer(help="Guard security cockpit")
-
-
-@guard_app.command("status")
-@audited("guard.status")
-def guard_status() -> None:
-    """Summarize guard subsystem status."""
-
-    typer.echo(json.dumps({"guard": "ok"}))
-
-
-@guard_app.command("ps")
-@audited("guard.ps")
-def guard_ps() -> None:
-    """List guard-related processes (placeholder)."""
-
-    typer.echo(json.dumps({"processes": []}))
-
-
-@guard_app.command("net")
-@audited("guard.net")
-def guard_net() -> None:
-    """List guard-related network ports (placeholder)."""
-
-    typer.echo(json.dumps({"ports": []}))
-
-
-@guard_app.command("perms")
-@audited("guard.perms")
-def guard_perms_scan(path: Path = typer.Argument(..., help="Path to scan")) -> None:
-    """Scan a path for permission anomalies."""
-
-    typer.echo(json.dumps({"path": str(path), "perms": "ok"}))
-
-
-@guard_app.command("secrets")
-@audited("guard.secrets")
-def guard_secrets_scan(path: Path = typer.Argument(..., help="Path to scan")) -> None:
-    """Scan a path for potential secrets."""
-
-    typer.echo(json.dumps({"path": str(path), "secrets": []}))
-
-
-@guard_app.command("quarantine")
-@audited("guard.quarantine")
-def guard_quarantine(item: str = typer.Argument(..., help="Item to quarantine")) -> None:
-    """Quarantine an item (requires a registered key)."""
-
-    gated("guard.quarantine")
-    typer.echo(json.dumps({"quarantined": item}))
-
-
-@guard_app.command("report")
-@audited("guard.report")
-def guard_report(format: str = typer.Option("md", "--format", help="md|sarif")) -> None:
-    """Generate a guard report."""
-
-    typer.echo(json.dumps({"format": format, "status": "ok"}))
-
-
-app.add_typer(guard_app, name="guard")
-
-
 @app.command("stability")
 @audited("stability")
 def stability(mode: str = typer.Argument(..., help="enable|disable")) -> None:
