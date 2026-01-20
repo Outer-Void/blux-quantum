@@ -26,5 +26,5 @@ jobs:
         run: ruff check .
       - name: Mypy
         run: mypy blux_quantum
-      - name: Tests
-        run: pytest
+      - name: Physics tests
+        run: scripts/physics_tests.sh

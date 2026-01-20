@@ -10,8 +10,6 @@ from importlib import metadata
 from rich import print
 
 DEFAULT_PLUGINS = {
-    "guard": "blux_quantum.plugins.examples.guard_plugin:get_app",
-    "lite": "blux_quantum.plugins.examples.lite_plugin:get_app",
     "doctrine": "blux_quantum.plugins.examples.doctrine_plugin:get_app",
 }
 

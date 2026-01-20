@@ -8,6 +8,17 @@ shipped here is self-contained—no external repositories are required.
 
 The legacy `bluxq` binary remains available as a backward-compatible alias.
 
+## Role and non-goals
+BLUX Quantum is dispatcher-only: it provides routing, visibility, and preview
+surfaces for constellation requests. It does not act as a policy engine or an
+execution runtime.
+
+Non-goals:
+- Making permission or enforcement decisions.
+- Executing tools or subprocesses.
+- Issuing, minting, or verifying tokens or signatures.
+- Implementing Guard or Lite responsibilities locally.
+
 ## Install
 ```bash
 python -m venv .venv
@@ -156,14 +167,6 @@ _Generated via `python scripts/generate_command_reference.py`._
     - `bluxq doctrine sync` — Synchronise doctrine data.
       - Example: `bluxq doctrine sync [OPTIONS]`
 
-- `bluxq guard` — Example BLUX Guard integration.
-  - Example: `bluxq guard [OPTIONS] COMMAND [ARGS]...`
-  - Subcommands:
-    - `bluxq guard status` — Show guard status.
-      - Example: `bluxq guard status [OPTIONS]`
-    - `bluxq guard ping` — Send a ping to the guard service.
-      - Example: `bluxq guard ping [OPTIONS]`
-
 - `bluxq telemetry` — Telemetry controls
   - Example: `bluxq telemetry [OPTIONS] COMMAND [ARGS]...`
   - Subcommands:
@@ -187,14 +190,6 @@ _Generated via `python scripts/generate_command_reference.py`._
       - Example: `bluxq help info [OPTIONS] TOPIC`
     - `bluxq help stats` — Display aggregated help statistics.
       - Example: `bluxq help stats [OPTIONS]`
-
-- `bluxq lite` — Example BLUX Lite integration.
-  - Example: `bluxq lite [OPTIONS] COMMAND [ARGS]...`
-  - Subcommands:
-    - `bluxq lite info` — Display lite module info.
-      - Example: `bluxq lite info [OPTIONS]`
-    - `bluxq lite activate` — Activate a lite profile.
-      - Example: `bluxq lite activate [OPTIONS]`
 
 <!-- END AUTO-GENERATED COMMANDS -->
 
